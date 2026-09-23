@@ -10,11 +10,22 @@ from sqlalchemy.orm.attributes import flag_modified
 import asyncio
 from .database import engine, get_db, Base
 from . import models
+import time
 
 load_dotenv()
+# Create tables with retry
+def init_db():
+    for attempt in range(10):
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("✅ Database tables initialized")
+            return
+        except Exception as e:
+            print(f"⏳ Waiting for DB to init tables (attempt {attempt + 1}): {e}")
+            time.sleep(3)
+    raise Exception("❌ Could not initialize database tables")
 
-# Create tables on startup
-Base.metadata.create_all(bind=engine)
+init_db()
 
 app = FastAPI(title="Socrat API")
 app.mount("/static", StaticFiles(directory="static"), name="static")

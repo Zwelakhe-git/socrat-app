@@ -11,8 +11,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy   # <-- NEW
+      redis:
+        condition: service_started
     networks:
       - socrat_net
 
@@ -27,6 +29,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U socrat_user -d socrat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - socrat_net
 
