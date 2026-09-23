@@ -41,7 +41,7 @@ services:
     image: redis:7-alpine
     container_name: socrat_redis
     ports:
-      - "6379:6379"
+      - "6378:6379"
     networks:
       - socrat_net
 
