@@ -6,3 +6,5 @@ pydantic
 sqlalchemy
 psycopg2-binary
 redis
+edge-tts
+pydub

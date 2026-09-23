@@ -4,7 +4,10 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-
+from fastapi.staticfiles import StaticFiles
+from .podcast import generate_podcast_script, generate_podcast_audio
+from sqlalchemy.orm.attributes import flag_modified
+import asyncio
 from .database import engine, get_db, Base
 from . import models
 
@@ -14,7 +17,7 @@ load_dotenv()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Socrat API")
-
+app.mount("/static", StaticFiles(directory="static"), name="static")
 client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
@@ -85,3 +88,54 @@ def chat_with_tutor(session_id: int, request: ChatRequest, db: Session = Depends
         "status": "success",
         "ai_response": ai_response
     }
+
+@app.post("/api/sessions/{session_id}/podcast")
+async def generate_podcast(session_id: int, db: Session = Depends(get_db)):
+    # 1. Fetch session
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # 2. Check if we already have a podcast
+    if session.podcast_status == "ready" and session.podcast_url:
+        return {"status": "ready", "podcast_url": session.podcast_url}
+
+    # 3. Fetch chat history
+    history = db.query(models.Message).filter(
+        models.Message.session_id == session_id
+    ).order_by(models.Message.created_at).all()
+
+    if len(history) < 2:
+        raise HTTPException(status_code=400, detail="Not enough messages to generate podcast")
+
+    # 4. Mark as generating
+    session.podcast_status = "generating"
+    db.commit()
+
+    try:
+        chat_history = [{"role": m.role, "content": m.content} for m in history]
+
+        # 5. Generate script via DeepSeek
+        script = generate_podcast_script(chat_history)
+        print(f"--- SCRIPT ---\n{script}\n--------------")
+
+        # 6. Generate audio
+        filename = f"podcast_session_{session_id}.mp3"
+        output_path = f"/app/static/podcasts/{filename}"
+        await generate_podcast_audio(script, output_path)
+
+        # 7. Update DB
+        session.podcast_url = f"/static/podcasts/{filename}"
+        session.podcast_status = "ready"
+        db.commit()
+
+        return {
+            "status": "ready",
+            "podcast_url": session.podcast_url,
+            "script": script  # useful for debugging/demo
+        }
+
+    except Exception as e:
+        session.podcast_status = "failed"
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Podcast generation failed: {str(e)}")

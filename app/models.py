@@ -7,8 +7,10 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, index=True, default="anonymous") # Simple for now
+    user_id = Column(String, index=True, default="anonymous")
     title = Column(String, default="New Chat")
+    podcast_url = Column(String, nullable=True)          # NEW
+    podcast_status = Column(String, default="none")      # NEW: none, generating, ready, failed
     created_at = Column(DateTime, default=datetime.utcnow)
 
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
