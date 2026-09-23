@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: socrat_app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - socrat_net
+
+  db:
+    image: postgres:16-alpine
+    container_name: socrat_db
+    environment:
+      POSTGRES_USER: socrat_user
+      POSTGRES_PASSWORD: socrat_pass
+      POSTGRES_DB: socrat_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - socrat_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: socrat_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - socrat_net
+
+volumes:
+  postgres_data:
+
+networks:
+  socrat_net:
+    driver: bridge
