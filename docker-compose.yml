@@ -5,7 +5,7 @@ services:
     build: .
     container_name: socrat_app
     ports:
-      - "8000:8000"
+      - "8020:8000"
     volumes:
       - .:/app
     env_file:
@@ -26,7 +26,7 @@ services:
       POSTGRES_PASSWORD: socrat_pass
       POSTGRES_DB: socrat_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,7 +41,7 @@ services:
     image: redis:7-alpine
     container_name: socrat_redis
     ports:
-      - "6378:6379"
+      - "6377:6379"
     networks:
       - socrat_net
 
