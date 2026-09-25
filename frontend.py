@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000"
+API_URL = "http://localhost:8020"
 
 st.set_page_config(
     page_title="Socrat",
@@ -194,31 +194,50 @@ with col1:
                 else:
                     st.error(f"Ошибка: {res.text}")
 
+import time
+
 with col2:
     st.markdown("### 🎧 Подкаст")
 
     if st.session_state.current_session_id:
-        if st.button("🎙️ Сгенерировать подкаст", use_container_width=True, type="primary"):
-            with st.spinner("Генерирую... (30–60 сек)"):
-                res = api(
-                    "post",
-                    f"/api/sessions/{st.session_state.current_session_id}/podcast"
-                )
+        # Find current session in the list to get its status
+        current = next(
+            (s for s in st.session_state.sessions
+             if s["id"] == st.session_state.current_session_id),
+            None
+        )
+        status = current["podcast_status"] if current else "none"
+        podcast_url = current["podcast_url"] if current else None
+
+        # --- Button / status display ---
+        if status == "ready" and podcast_url:
+            st.success("✅ Подкаст готов")
+        elif status == "generating":
+            st.info("⏳ Генерирую подкаст... Это займёт 30–60 секунд.")
+        else:
+            
+            if st.button("🎙️ Сгенерировать подкаст",
+                         use_container_width=True, type="primary"):
+                res = api("post", f"/api/sessions/{st.session_state.current_session_id}/podcast")
                 if res.status_code == 200:
-                    data = res.json()
-                    st.session_state.podcast_url = data["podcast_url"]
-                    st.session_state.script = data.get("script", "")
-                    load_sessions()
                     st.rerun()
                 else:
                     st.error(f"Ошибка: {res.text}")
 
-        if st.session_state.podcast_url:
-            st.audio(f"{API_URL}{st.session_state.podcast_url}", format="audio/mp3")
+        # --- Audio player ---
+        if status == "ready" and podcast_url:
+            st.audio(f"{API_URL}{podcast_url}", format="audio/mp3")
             if st.session_state.script:
                 with st.expander("📜 Показать сценарий"):
                     st.text(st.session_state.script)
-        else:
-            st.info("Нажми кнопку, чтобы создать подкаст из этого диалога")
+
+        # --- POLLING ---
+        # If generating, poll every 3 seconds until done
+        if status == "generating":
+            with st.spinner("Проверяю статус..."):
+                time.sleep(3)
+                load_sessions()  # refresh session list from DB
+                st.rerun()
+
     else:
         st.info("Создай чат, чтобы начать")

@@ -12,7 +12,23 @@ services:
       - .env
     depends_on:
       db:
-        condition: service_healthy   # <-- NEW
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - socrat_net
+
+  worker:
+    build: .
+    container_name: socrat_worker
+    command: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_started
     networks:
@@ -26,7 +42,7 @@ services:
       POSTGRES_PASSWORD: socrat_pass
       POSTGRES_DB: socrat_db
     ports:
-      - "5433:5432"
+      - "5431:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -16,6 +16,7 @@ from .auth import (
 )
 from .podcast import generate_podcast_script, generate_podcast_audio
 from .cache import cache_get, cache_set, cache_delete, get_cached_history
+from .tasks import generate_podcast_task
 
 load_dotenv()
 
@@ -232,11 +233,14 @@ def chat_with_tutor(
 
 # ---------- PODCAST ENDPOINT ----------
 @app.post("/api/sessions/{session_id}/podcast")
-async def generate_podcast(
+def start_podcast(
     session_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    """
+    Dispatch podcast generation to Celery. Returns immediately.
+    """
     session = db.query(models.ChatSession).filter(
         models.ChatSession.id == session_id,
         models.ChatSession.user_id == current_user.id
@@ -244,37 +248,58 @@ async def generate_podcast(
     if not session:
         raise HTTPException(404, "Session not found")
 
+    # Already ready? Just return it.
     if session.podcast_status == "ready" and session.podcast_url:
-        return {"status": "ready", "podcast_url": session.podcast_url}
-
-    history = db.query(models.Message).filter(
-        models.Message.session_id == session_id
-    ).order_by(models.Message.created_at).all()
-
-    if len(history) < 2:
-        raise HTTPException(400, "Not enough messages to generate podcast")
-
-    session.podcast_status = "generating"
-    db.commit()
-
-    try:
-        chat_history = [{"role": m.role, "content": m.content} for m in history]
-        script = generate_podcast_script(chat_history)
-
-        filename = f"podcast_session_{session_id}.mp3"
-        output_path = f"/app/static/podcasts/{filename}"
-        await generate_podcast_audio(script, output_path)
-
-        session.podcast_url = f"/static/podcasts/{filename}"
-        session.podcast_status = "ready"
-        db.commit()
-
         return {
             "status": "ready",
             "podcast_url": session.podcast_url,
-            "script": script
+            "message": "Podcast already exists"
         }
-    except Exception as e:
-        session.podcast_status = "failed"
-        db.commit()
-        raise HTTPException(500, f"Podcast generation failed: {str(e)}")
+
+    # Already generating? Don't double-dispatch.
+    if session.podcast_status == "generating":
+        return {
+            "status": "generating",
+            "message": "Podcast is already being generated"
+        }
+
+    # Check we have enough messages
+    msg_count = db.query(models.Message).filter(
+        models.Message.session_id == session_id
+    ).count()
+    if msg_count < 2:
+        raise HTTPException(400, "Not enough messages to generate podcast")
+
+    # Dispatch task
+    session.podcast_status = "generating"
+    db.commit()
+
+    task = generate_podcast_task.delay(session_id)
+    print(f"🚀 Dispatched task {task.id} for session {session_id}")
+
+    return {
+        "status": "generating",
+        "task_id": task.id
+    }
+
+
+@app.get("/api/sessions/{session_id}/podcast/status")
+def get_podcast_status(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Frontend polls this to check podcast progress.
+    """
+    session = db.query(models.ChatSession).filter(
+        models.ChatSession.id == session_id,
+        models.ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    return {
+        "status": session.podcast_status,   # none | generating | ready | failed
+        "podcast_url": session.podcast_url,
+    }

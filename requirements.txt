@@ -8,6 +8,7 @@ psycopg2-binary
 redis
 edge-tts
 pydub
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
 python-multipart
+celery

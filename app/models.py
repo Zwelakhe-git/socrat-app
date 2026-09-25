@@ -21,7 +21,7 @@ class ChatSession(Base):
     title = Column(String, default="New Chat")
     podcast_url = Column(String, nullable=True)
     podcast_status = Column(String, default="none")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
     owner = relationship("User", back_populates="sessions")  # NEW
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
@@ -33,6 +33,6 @@ class Message(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"))
     role = Column(String)
     content = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
     session = relationship("ChatSession", back_populates="messages")
