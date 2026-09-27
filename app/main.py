@@ -303,3 +303,41 @@ def get_podcast_status(
         "status": session.podcast_status,   # none | generating | ready | failed
         "podcast_url": session.podcast_url,
     }
+
+import os
+
+@app.delete("/api/sessions/{session_id}/podcast")
+def delete_podcast(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Delete the generated podcast for a session, allowing regeneration.
+    Clears podcast_url, resets status to 'none', and removes the MP3 file.
+    The script is KEPT in the DB so regeneration is faster.
+    """
+    session = db.query(models.ChatSession).filter(
+        models.ChatSession.id == session_id,
+        models.ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    # Delete the MP3 file if it exists
+    if session.podcast_url:
+        filename = session.podcast_url.replace("/static/podcasts/", "")
+        file_path = f"/app/static/podcasts/{filename}"
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"🗑️  Deleted podcast file: {file_path}")
+        except Exception as e:
+            print(f"⚠️  Could not delete file {file_path}: {e}")
+
+    # Reset DB fields (keep podcast_script for fast regeneration)
+    session.podcast_url = None
+    session.podcast_status = "none"
+    db.commit()
+
+    return {"status": "deleted", "message": "Podcast deleted. Ready to regenerate."}

@@ -196,48 +196,106 @@ with col1:
 
 import time
 
+# Polling config
+POLL_INTERVAL = 3        # seconds between checks
+MAX_WAIT = 120           # max seconds to wait before giving up
+
 with col2:
     st.markdown("### 🎧 Подкаст")
 
-    if st.session_state.current_session_id:
-        # Find current session in the list to get its status
-        current = next(
-            (s for s in st.session_state.sessions
-             if s["id"] == st.session_state.current_session_id),
-            None
-        )
-        status = current["podcast_status"] if current else "none"
-        podcast_url = current["podcast_url"] if current else None
-
-        # --- Button / status display ---
-        if status == "ready" and podcast_url:
-            st.success("✅ Подкаст готов")
-        elif status == "generating":
-            st.info("⏳ Генерирую подкаст... Это займёт 30–60 секунд.")
-        else:
-            
-            if st.button("🎙️ Сгенерировать подкаст",
-                         use_container_width=True, type="primary"):
-                res = api("post", f"/api/sessions/{st.session_state.current_session_id}/podcast")
-                if res.status_code == 200:
-                    st.rerun()
-                else:
-                    st.error(f"Ошибка: {res.text}")
-
-        # --- Audio player ---
-        if status == "ready" and podcast_url:
-            st.audio(f"{API_URL}{podcast_url}", format="audio/mp3")
-            if st.session_state.script:
-                with st.expander("📜 Показать сценарий"):
-                    st.text(st.session_state.script)
-
-        # --- POLLING ---
-        # If generating, poll every 3 seconds until done
-        if status == "generating":
-            with st.spinner("Проверяю статус..."):
-                time.sleep(3)
-                load_sessions()  # refresh session list from DB
-                st.rerun()
-
-    else:
+    if not st.session_state.current_session_id:
         st.info("Создай чат, чтобы начать")
+        st.stop()
+
+    # Fetch fresh status from API directly (not stale local state)
+    status_res = api("get", f"/api/sessions/{st.session_state.current_session_id}/podcast/status")
+    if status_res.status_code != 200:
+        st.error("Не удалось получить статус подкаста")
+        st.stop()
+
+    status_data = status_res.json()
+    status = status_data["status"]
+    podcast_url = status_data["podcast_url"]
+
+    # ---------- READY ----------
+    if status == "ready" and podcast_url:
+        st.success("✅ Подкаст готов")
+        st.audio(f"{API_URL}{podcast_url}", format="audio/mp3")
+
+        if st.session_state.script:
+            with st.expander("📜 Показать сценарий"):
+                st.text(st.session_state.script)
+
+        if st.button("🗑️ Удалить и создать заново", use_container_width=True):
+            res = api("delete", f"/api/sessions/{st.session_state.current_session_id}/podcast")
+            if res.status_code == 200:
+                st.session_state.podcast_url = None
+                st.session_state.script = None
+                load_sessions()
+                st.rerun()
+            else:
+                st.error(f"Ошибка удаления: {res.text}")
+
+    # ---------- FAILED ----------
+    elif status == "failed":
+        st.error("❌ Генерация не удалась")
+        if st.button("🔄 Попробовать снова", use_container_width=True):
+            api("post", f"/api/sessions/{st.session_state.current_session_id}/podcast")
+            st.rerun()
+
+    # ---------- GENERATING ----------
+    elif status == "generating":
+        # Show progress and poll with a max wait limit
+        progress_placeholder = st.empty()
+        cancel_placeholder = st.empty()
+
+        start_time = time.time()
+        elapsed = 0
+
+        while elapsed < MAX_WAIT:
+            remaining = MAX_WAIT - int(elapsed)
+            progress_placeholder.info(
+                f"⏳ Генерирую подкаст... (осталось ~{remaining} сек)\n\n"
+                f"Можно свернуть вкладку — генерация продолжится на сервере."
+            )
+
+            time.sleep(POLL_INTERVAL)
+            elapsed = time.time() - start_time
+
+            # Check status
+            res = api("get", f"/api/sessions/{st.session_state.current_session_id}/podcast/status")
+            if res.status_code == 200:
+                data = res.json()
+                if data["status"] != "generating":
+                    # Status changed! Refresh and let the loop exit.
+                    load_sessions()
+                    if data["status"] == "ready":
+                        # Load the script too
+                        detail = api("get", f"/api/sessions/{st.session_state.current_session_id}")
+                        if detail.status_code == 200:
+                            st.session_state.script = detail.json().get("podcast_script")
+                    st.rerun()
+
+        # Timeout reached
+        progress_placeholder.warning(
+            f"⏱️ Превышено время ожидания ({MAX_WAIT} сек).\n\n"
+            f"Генерация продолжается на сервере. "
+            f"Проверь результат позже — вернись в этот чат или обнови страницу."
+        )
+        if st.button("🔄 Проверить статус сейчас", use_container_width=True):
+            load_sessions()
+            st.rerun()
+
+    # ---------- NONE ----------
+    else:
+        st.info("Нажми кнопку, чтобы создать подкаст из этого диалога")
+        if st.button("🎙️ Сгенерировать подкаст", use_container_width=True, type="primary"):
+            res = api("post", f"/api/sessions/{st.session_state.current_session_id}/podcast")
+            if res.status_code == 200:
+                data = res.json()
+                # If already ready, just jump straight to displaying it
+                if data.get("status") == "ready":
+                    load_sessions()
+                st.rerun()
+            else:
+                st.error(f"Ошибка запуска: {res.text}")
