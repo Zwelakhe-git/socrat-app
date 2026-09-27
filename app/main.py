@@ -317,6 +317,7 @@ def delete_podcast(
     Clears podcast_url, resets status to 'none', and removes the MP3 file.
     The script is KEPT in the DB so regeneration is faster.
     """
+    print("delete request")
     session = db.query(models.ChatSession).filter(
         models.ChatSession.id == session_id,
         models.ChatSession.user_id == current_user.id
