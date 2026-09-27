@@ -29,12 +29,19 @@ def auth_headers():
 
 
 def api(method, path, **kwargs):
-    """Helper for authenticated API calls."""
+    """Helper for authenticated API calls. Supports get/post/put/delete."""
     headers = auth_headers()
     url = f"{API_URL}{path}"
+    method = method.lower()
     if method == "get":
         return requests.get(url, headers=headers, **kwargs)
-    return requests.post(url, headers=headers, **kwargs)
+    if method == "post":
+        return requests.post(url, headers=headers, **kwargs)
+    if method == "put":
+        return requests.put(url, headers=headers, **kwargs)
+    if method == "delete":
+        return requests.delete(url, headers=headers, **kwargs)
+    raise ValueError(f"Unsupported method: {method}")
 
 
 def load_sessions():
