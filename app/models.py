@@ -21,6 +21,7 @@ class ChatSession(Base):
     title = Column(String, default="New Chat")
     podcast_url = Column(String, nullable=True)
     podcast_status = Column(String, default="none")
+    podcast_script = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
     owner = relationship("User", back_populates="sessions")  # NEW
