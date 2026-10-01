@@ -23,6 +23,7 @@ class ChatSession(Base):
     podcast_status = Column(String, default="none")
     podcast_script = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
+    podcast_r2_key = Column(String, nullable=True)
 
     owner = relationship("User", back_populates="sessions")  # NEW
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
