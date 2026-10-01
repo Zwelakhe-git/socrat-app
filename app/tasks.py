@@ -60,6 +60,10 @@ def generate_podcast_task(self, session_id: int):
         session.podcast_status = "ready"
         db.commit()
 
+        if os.path.exists(output_path):
+            os.remove(output_path)
+            print("podcast file deleted from local machine")
+
         print(f"✅ [Task {self.request.id}] Podcast ready: {session.podcast_url}")
         return {"status": "ready", "podcast_url": session.podcast_url, "task_id": self.request.id}
 

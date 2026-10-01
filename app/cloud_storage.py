@@ -12,14 +12,10 @@ def upload_to_cloud(file_path: str, key_prefix: str, content_type: str = "applic
         key,
         ExtraArgs={"ContentType": content_type},
     )
-    url = s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": BUCKET, "Key": key},
-        ExpiresIn=3600,
-    )
+    url = get_file_url(key)
     return {
         "key": key,
-        "url": url
+        "url": url['url']
     }
 
 def get_file_url(key: str):

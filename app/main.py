@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
+from cloud_storage import get_file_url, delete_file
 
 from .database import engine, get_db, Base
 from . import models
@@ -249,10 +250,11 @@ def start_podcast(
         raise HTTPException(404, "Session not found")
 
     # Already ready? Just return it.
-    if session.podcast_status == "ready" and session.podcast_url:
+    if session.podcast_status == "ready" and session.podcast_r2_key:
+        podcast_url = get_file_url(session.podcast_r2_key)
         return {
             "status": "ready",
-            "podcast_url": session.podcast_url,
+            "podcast_url": podcast_url['url'],
             "message": "Podcast already exists"
         }
 
@@ -325,19 +327,22 @@ def delete_podcast(
     if not session:
         raise HTTPException(404, "Session not found")
 
+    if session.podcast_r2_key:
+        delete_file(session.podcast_r2_key)
     # Delete the MP3 file if it exists
-    if session.podcast_url:
-        filename = session.podcast_url.replace("/static/podcasts/", "")
-        file_path = f"/app/static/podcasts/{filename}"
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                print(f"🗑️  Deleted podcast file: {file_path}")
-        except Exception as e:
-            print(f"⚠️  Could not delete file {file_path}: {e}")
+    # if session.podcast_url:
+    #     filename = session.podcast_url.replace("/static/podcasts/", "")
+    #     file_path = f"/app/static/podcasts/{filename}"
+    #     try:
+    #         if os.path.exists(file_path):
+    #             os.remove(file_path)
+    #             print(f"🗑️  Deleted podcast file: {file_path}")
+    #     except Exception as e:
+    #         print(f"⚠️  Could not delete file {file_path}: {e}")
 
     # Reset DB fields (keep podcast_script for fast regeneration)
     session.podcast_url = None
+    session.podcast_r2_key = None
     session.podcast_status = "none"
     db.commit()
 
