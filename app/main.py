@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from cloud_storage import get_file_url, delete_file
+from .cloud_storage import get_file_url, delete_file
 
 from .database import engine, get_db, Base
 from . import models

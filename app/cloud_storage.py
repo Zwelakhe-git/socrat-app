@@ -1,4 +1,4 @@
-from cloudflare_s3 import s3, BUCKET
+from .cloudflare_s3 import s3, BUCKET
 import os
 import uuid
 

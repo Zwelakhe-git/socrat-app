@@ -4,7 +4,7 @@ from .celery_app import celery_app
 from .database import SessionLocal
 from . import models
 from .podcast import generate_podcast_script, generate_podcast_audio
-from cloud_storage import upload_to_cloud
+from .cloud_storage import upload_to_cloud
 
 @celery_app.task(name="generate_podcast_task", bind=True)
 def generate_podcast_task(self, session_id: int):
