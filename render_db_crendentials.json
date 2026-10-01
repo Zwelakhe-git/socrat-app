@@ -1,0 +1,9 @@
+{
+    "hostname": "dpg-dav6tjk1nsns738ugqlg-a",
+    "db_name": "socrat_db",
+    "db_pass": "awVEnEpzzATWSj0DIE72O8RdqXYA9Kt6",
+    "db_user": "socrat_user",
+    "internal_url": "postgresql://socrat_user:awVEnEpzzATWSj0DIE72O8RdqXYA9Kt6@dpg-dav6tjk1nsns738ugqlg-a/socrat_db",
+    "external_url": "postgresql://socrat_user:awVEnEpzzATWSj0DIE72O8RdqXYA9Kt6@dpg-dav6tjk1nsns738ugqlg-a.oregon-postgres.render.com/socrat_db"
+    "psql_command": "PGPASSWORD=awVEnEpzzATWSj0DIE72O8RdqXYA9Kt6 psql -h dpg-dav6tjk1nsns738ugqlg-a.oregon-postgres.render.com -U socrat_user socrat_db"
+}

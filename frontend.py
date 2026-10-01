@@ -227,7 +227,7 @@ with col2:
     # ---------- READY ----------
     if status == "ready" and podcast_url:
         st.success("✅ Подкаст готов")
-        st.audio(f"{API_URL}{podcast_url}", format="audio/mp3")
+        st.audio(f"{podcast_url}", format="audio/mp3")
 
         if st.session_state.script:
             with st.expander("📜 Показать сценарий"):

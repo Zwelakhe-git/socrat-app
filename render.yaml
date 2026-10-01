@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: socrat-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: gunicorn myapp.wsgi
+
+  - type: worker
+    name: socrat-render-celery-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=2
